@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>趣味消消乐 - 一起挑战高分！</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome图标 -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- Tailwind配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#FF6B6B',
+            secondary: '#4ECDC4',
+            accent: '#FFD166',
+            dark: '#292F36',
+            light: '#F7FFF7',
+          },
+          fontFamily: {
+            game: ['"Comic Sans MS"', 'cursive', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <!-- 自定义工具类 -->
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .text-shadow {
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+      .grid-item {
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .grid-item:hover {
+        transform: scale(1.05);
+      }
+      .grid-item.selected {
+        box-shadow: 0 0 0 3px #FFD166, 0 0 10px 3px rgba(255, 209, 102, 0.5);
+        transform: scale(1.1);
+      }
+      .animate-fall {
+        animation: fall 0.3s ease-out forwards;
+      }
+      .animate-bounce {
+        animation: bounce 0.5s ease-in-out;
+      }
+      .animate-scale {
+        animation: scale 0.3s ease-in-out;
+      }
+      .animate-shine {
+        animation: shine 0.5s ease-in-out;
+      }
+      @keyframes fall {
+        from { transform: translateY(-100%); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes bounce {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+      }
+      @keyframes scale {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(0.8); }
+      }
+      @keyframes shine {
+        0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+        70% { box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+      }
+    }
+  </style>
+  
+  <!-- 分享优化元标签 -->
+  <meta property="og:title" content="趣味消消乐" />
+  <meta property="og:description" content="快来和好友一起玩消消乐，挑战最高分数！" />
+  <meta property="og:image" content="https://picsum.photos/1200/630?random=1" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+</head>
+<body class="bg-gradient-to-br from-light to-secondary min-h-screen font-game flex flex-col items-center justify-center p-4">
+  <!-- 游戏容器 -->
+  <div class="w-full max-w-md mx-auto">
+    <!-- 游戏标题 -->
+    <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-primary text-center mb-4 text-shadow animate-bounce">
+      趣味消消乐
+    </h1>
+    
+    <!-- 游戏状态信息 -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg mb-6 flex justify-between items-center">
+      <div>
+        <p class="text-dark/70 text-sm">得分</p>
+        <p id="score" class="text-2xl font-bold text-primary">0</p>
+      </div>
+      <div>
+        <p class="text-dark/70 text-sm">剩余步数</p>
+        <p id="moves" class="text-2xl font-bold text-primary">30</p>
+      </div>
+      <button id="share-btn" class="bg-secondary hover:bg-secondary/90 text-white p-2 rounded-full shadow-md hover:shadow-lg transition-all">
+        <i class="fa fa-share-alt"></i>
+      </button>
+    </div>
+    
+    <!-- 游戏区域 -->
+    <div id="game-container" class="relative bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg mb-6">
+      <div id="grid" class="grid grid-cols-6 gap-2"></div>
+      
+      <!-- 游戏开始遮罩 -->
+      <div id="start-screen" class="absolute inset-0 bg-dark/70 rounded-xl flex flex-col items-center justify-center z-10">
+        <h2 class="text-[clamp(1.5rem,4vw,2rem)] font-bold text-white mb-6">准备开始!</h2>
+        <button id="start" class="bg-primary hover:bg-primary/90 text-white text-lg font-bold py-3 px-8 rounded-full transition-all shadow-lg hover:shadow-xl transform hover:scale-105">
+          开始游戏
+        </button>
+      </div>
+      
+      <!-- 游戏结束遮罩 -->
+      <div id="game-over" class="absolute inset-0 bg-dark/70 rounded-xl flex-col items-center justify-center z-10 hidden">
+        <h2 class="text-[clamp(1.5rem,4vw,2rem)] font-bold text-white mb-2">游戏结束!</h2>
+        <p class="text-white text-lg mb-6">最终得分: <span id="final-score">0</span></p>
+        <div class="flex space-x-4 mb-6">
+          <button id="share-result" class="bg-primary hover:bg-primary/90 text-white text-lg font-bold py-2 px-6 rounded-full transition-all shadow-lg hover:shadow-xl">
+            <i class="fa fa-share-alt mr-2"></i>分享成绩
+          </button>
+          <button id="play-again" class="bg-secondary hover:bg-secondary/90 text-white text-lg font-bold py-2 px-6 rounded-full transition-all shadow-lg hover:shadow-xl">
+            再玩一次
+          </button>
+        </div>
+        <p class="text-white/70 text-sm">邀请好友一起挑战，看看谁的分数更高!</p>
+      </div>
+    </div>
+    
+    <!-- 游戏规则 -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg">
+      <h3 class="text-lg font-bold text-dark mb-2 flex items-center">
+        <i class="fa fa-info-circle text-primary mr-2"></i>游戏规则
+      </h3>
+      <ul class="text-dark/80 space-y-1 text-sm">
+        <li class="flex items-start">
+          <i class="fa fa-check-circle text-primary mt-1 mr-2"></i>
+          <span>点击两个相邻的元素进行交换</span>
+        </li>
+        <li class="flex items-start">
+          <i class="fa fa-check-circle text-primary mt-1 mr-2"></i>
+          <span>三个或以上相同元素连成一线即可消除</span>
+        </li>
+        <li class="flex items-start">
+          <i class="fa fa-check-circle text-primary mt-1 mr-2"></i>
+          <span>消除的元素越多，得分越高</span>
+        </li>
+        <li class="flex items-start">
+          <i class="fa fa-check-circle text-primary mt-1 mr-2"></i>
+          <span>剩余步数用完后游戏结束</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // 游戏配置
+      const config = {
+        gridSize: 6, // 网格大小
+        itemTypes: ['🍎', '🍌', '🍇', '🍊', '🍓', '🍉'], // 元素类型
+        scorePerItem: 10, // 每个元素得分
+        moves: 30, // 初始步数
+      };
+      
+      // 游戏状态
+      const state = {
+        grid: [], // 游戏网格数据
+        selectedItem: null, // 当前选中的元素
+        score: 0, // 当前得分
+        movesLeft: config.moves, // 剩余步数
+        isSwapping: false, // 是否正在交换
+        gameStarted: false, // 游戏是否已开始
+        gameOver: false, // 游戏是否结束
+      };
+      
+      // DOM 元素
+      const elements = {
+        grid: document.getElementById('grid'),
+        score: document.getElementById('score'),
+        moves: document.getElementById('moves'),
+        startScreen: document.getElementById('start-screen'),
+        gameOverScreen: document.getElementById('game-over'),
+        finalScore: document.getElementById('final-score'),
+        startButton: document.getElementById('start'),
+        restartButton: document.getElementById('restart'),
+        playAgainButton: document.getElementById('play-again'),
+        shareButton: document.getElementById('share-btn'),
+        shareResultButton: document.getElementById('share-result'),
+      };
+      
+      // 初始化游戏
+      function initGame() {
+        // 重置游戏状态
+        state.grid = createGrid();
+        state.selectedItem = null;
+        state.score = 0;
+        state.movesLeft = config.moves;
+        state.isSwapping = false;
+        state.gameStarted = false;
+        state.gameOver = false;
+        
+        // 更新UI
+        updateScore();
+        updateMoves();
+        renderGrid();
+        
+        // 显示开始界面
+        elements.startScreen.classList.remove('hidden');
+        elements.gameOverScreen.classList.add('hidden');
+      }
+      
+      // 创建游戏网格
+      function createGrid() {
+        const grid = [];
+        for (let row = 0; row < config.gridSize; row++) {
+          grid[row] = [];
+          for (let col = 0; col < config.gridSize; col++) {
+            // 确保不会在初始化时就有可消除的组合
+            let itemType;
+            do {
+              itemType = getRandomItemType();
+            } while (hasInitialMatch(grid, row, col, itemType));
+            
+            grid[row][col] = {
+              type: itemType,
+              row,
+              col,
+              animate: false,
+              fallingDistance: 0,
+            };
+          }
+        }
+        return grid;
+      }
+      
+      // 检查初始化时是否会形成匹配
+      function hasInitialMatch(grid, row, col, type) {
+        // 检查水平方向
+        let horizontalMatch = 1;
+        if (col >= 2) {
+          for (let i = 1; i <= 2; i++) {
+            if (grid[row][col - i]?.type === type) {
+              horizontalMatch++;
+            }
+          }
+        }
+        
+        // 检查垂直方向
+        let verticalMatch = 1;
+        if (row >= 2) {
+          for (let i = 1; i <= 2; i++) {
+            if (grid[row - i][col]?.type === type) {
+              verticalMatch++;
+            }
+          }
+        }
+        
+        return horizontalMatch >= 3 || verticalMatch >= 3;
+      }
+      
+      // 获取随机元素类型
+      function getRandomItemType() {
+        return config.itemTypes[Math.floor(Math.random() * config.itemTypes.length)];
+      }
+      
+      // 渲染游戏网格
+      function renderGrid() {
+        elements.grid.innerHTML = '';
+        elements.grid.style.gridTemplateColumns = `repeat(${config.gridSize}, 1fr)`;
+        
+        for (let row = 0; row < config.gridSize; row++) {
+          for (let col = 0; col < config.gridSize; col++) {
+            const item = state.grid[row][col];
+            const itemElement = document.createElement('div');
+            itemElement.className = `grid-item flex items-center justify-center rounded-lg shadow-md cursor-pointer ${getItemColorClass(item.type)}`;
+            itemElement.innerHTML = `<span class="text-3xl">${item.type}</span>`;
+            itemElement.dataset.row = row;
+            itemElement.dataset.col = col;
+            
+            // 添加动画类
+            if (item.animate) {
+              itemElement.classList.add('animate-fall');
+              item.animate = false;
+            }
+            
+            // 添加选中状态
+            if (state.selectedItem && state.selectedItem.row === row && state.selectedItem.col === col) {
+              itemElement.classList.add('selected');
+            }
+            
+            // 添加点击事件
+            itemElement.addEventListener('click', () => handleItemClick(row, col));
+            
+            elements.grid.appendChild(itemElement);
+          }
+        }
+      }
+      
+      // 获取元素颜色类
+      function getItemColorClass(type) {
+        const colors = {
+          '🍎': 'bg-red-400',
+          '🍌': 'bg-yellow-400',
+          '🍇': 'bg-purple-400',
+          '🍊': 'bg-orange-400',
+          '🍓': 'bg-pink-400',
+          '🍉': 'bg-green-400',
+        };
+        return colors[type] || 'bg-gray-400';
+      }
+      
+      // 处理元素点击
+      function handleItemClick(row, col) {
+        // 如果游戏未开始或已结束，或者正在交换中，则不处理点击
+        if (!state.gameStarted || state.gameOver || state.isSwapping) return;
+        
+        const item = state.grid[row][col];
+        
+        // 如果是第一次选择
+        if (!state.selectedItem) {
+          state.selectedItem = item;
+          renderGrid();
+          return;
+        }
+        
+        // 如果是点击已选中的元素，则取消选择
+        if (state.selectedItem.row === row && state.selectedItem.col === col) {
+          state.selectedItem = null;
+          renderGrid();
+          return;
+        }
+        
+        // 检查是否是相邻元素
+        if (isAdjacent(state.selectedItem, item)) {
+          // 尝试交换
+          swapItems(state.selectedItem, item);
+        } else {
+          // 如果不是相邻元素，则更新选中元素
+          state.selectedItem = item;
+          renderGrid();
+        }
+      }
+      
+      // 检查两个元素是否相邻
+      function isAdjacent(item1, item2) {
+        const rowDiff = Math.abs(item1.row - item2.row);
+        const colDiff = Math.abs(item1.col - item2.col);
+        
+        return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+      }
+      
+      // 交换两个元素
+      function swapItems(item1, item2) {
+        state.isSwapping = true;
+        
+        // 交换网格中的数据
+        const tempType = state.grid[item1.row][item1.col].type;
+        state.grid[item1.row][item1.col].type = state.grid[item2.row][item2.col].type;
+        state.grid[item2.row][item2.col].type = tempType;
+        
+        // 重新渲染网格
+        renderGrid();
+        
+        // 检查是否有匹配
+        setTimeout(() => {
+          const matches = findMatches();
+          
+          if (matches.length > 0) {
+            // 有匹配，处理消除
+            processMatches(matches);
+          } else {
+            // 没有匹配，交换回来
+            const tempType = state.grid[item1.row][item1.col].type;
+            state.grid[item1.row][item1.col].type = state.grid[item2.row][item2.col].type;
+            state.grid[item2.row][item2.col].type = tempType;
+            
+            // 显示交换无效的动画
+            renderGrid();
+            setTimeout(() => {
+              state.isSwapping = false;
+              state.selectedItem = null;
+              renderGrid();
+            }, 300);
+          }
+        }, 300);
+      }
+      
+      // 查找所有匹配
+      function findMatches() {
+        const matches = [];
+        
+        // 检查水平匹配
+        for (let row = 0; row < config.gridSize; row++) {
+          for (let col = 0; col < config.gridSize - 2; col++) {
+            const currentType = state.grid[row][col].type;
+            if (
+              currentType &&
+              currentType === state.grid[row][col + 1].type &&
+              currentType === state.grid[row][col + 2].type
+            ) {
+              // 找到至少3个相同元素的水平匹配
+              let matchLength = 3;
+              while (col + matchLength < config.gridSize && state.grid[row][col + matchLength].type === currentType) {
+                matchLength++;
+              }
+              
+              // 添加匹配信息
+              matches.push({
+                type: 'horizontal',
+                row,
+                col,
+                length: matchLength,
+                items: Array.from({ length: matchLength }, (_, i) => ({
+                  row,
+                  col: col + i,
+                })),
+              });
+              
+              // 跳过已经匹配的元素
+              col += matchLength - 1;
+            }
+          }
+        }
+        
+        // 检查垂直匹配
+        for (let col = 0; col < config.gridSize; col++) {
+          for (let row = 0; row < config.gridSize - 2; row++) {
+            const currentType = state.grid[row][col].type;
+            if (
+              currentType &&
+              currentType === state.grid[row + 1][col].type &&
+              currentType === state.grid[row + 2][col].type
+            ) {
+              // 找到至少3个相同元素的垂直匹配
+              let matchLength = 3;
+              while (row + matchLength < config.gridSize && state.grid[row + matchLength][col].type === currentType) {
+                matchLength++;
+              }
+              
+              // 添加匹配信息
+              matches.push({
+                type: 'vertical',
+                row,
+                col,
+                length: matchLength,
+                items: Array.from({ length: matchLength }, (_, i) => ({
+                  row: row + i,
+                  col,
+                })),
+              });
+              
+              // 跳过已经匹配的元素
+              row += matchLength - 1;
+            }
+          }
+        }
+        
+        return matches;
+      }
+      
+      // 处理匹配消除
+      function processMatches(matches) {
+        // 计算得分
+        let pointsEarned = 0;
+        matches.forEach(match => {
+          pointsEarned += match.length * config.scorePerItem;
+        });
+        
+        // 更新得分
+        state.score += pointsEarned;
+        updateScore();
+        
+        // 标记要消除的元素
+        const matchedPositions = new Set();
+        matches.forEach(match => {
+          match.items.forEach(item => {
+            const key = `${item.row}-${item.col}`;
+            if (!matchedPositions.has(key)) {
+              matchedPositions.add(key);
+              state.grid[item.row][item.col].type = null;
+            }
+          });
+        });
+        
+        // 显示消除动画
+        renderGrid();
+        
+        // 减少步数
+        if (pointsEarned > 0) {
+          state.movesLeft--;
+          updateMoves();
+          
+          // 检查游戏是否结束
+          if (state.movesLeft <= 0) {
+            endGame();
+            return;
+          }
+        }
+        
+        // 等待一段时间后填充空白并检查新的匹配
+        setTimeout(() => {
+          fillEmptySpaces();
+          
+          // 检查是否有新的匹配
+          setTimeout(() => {
+            const newMatches = findMatches();
+            if (newMatches.length > 0) {
+              // 有新的匹配，继续处理
+              processMatches(newMatches);
+            } else {
+              // 没有新的匹配，重置交换状态
+              state.isSwapping = false;
+              state.selectedItem = null;
+              renderGrid();
+              
+              // 检查是否有可移动的元素
+              if (!hasValidMoves()) {
+                // 没有可移动的元素，游戏结束
+                endGame();
+              }
+            }
+          }, 500);
+        }, 300);
+      }
+      
+      // 填充空白位置
+      function fillEmptySpaces() {
+        // 对每一列进行处理
+        for (let col = 0; col < config.gridSize; col++) {
+          // 下落现有元素
+          for (let row = config.gridSize - 1; row >= 0; row--) {
+            if (state.grid[row][col].type === null) {
+              // 找到上方最近的非空元素
+              for (let aboveRow = row - 1; aboveRow >= 0; aboveRow--) {
+                if (state.grid[aboveRow][col].type !== null) {
+                  // 下移元素
+                  state.grid[row][col].type = state.grid[aboveRow][col].type;
+                  state.grid[aboveRow][col].type = null;
+                  state.grid[row][col].animate = true;
+                  break;
+                }
+              }
+            }
+          }
+          
+          // 填充顶部的空白
+          for (let row = 0; row < config.gridSize; row++) {
+            if (state.grid[row][col].type === null) {
+              state.grid[row][col].type = getRandomItemType();
+              state.grid[row][col].animate = true;
+            }
+          }
+        }
+        
+        renderGrid();
+      }
+      
+      // 检查是否有可移动的元素
+      function hasValidMoves() {
+        // 复制当前网格进行检查
+        const tempGrid = JSON.parse(JSON.stringify(state.grid));
+        
+        // 检查每个可能的交换
+        for (let row = 0; row < config.gridSize; row++) {
+          for (let col = 0; col < config.gridSize; col++) {
+            // 尝试与右侧元素交换
+            if (col < config.gridSize - 1) {
+              // 交换
+              [tempGrid[row][col].type, tempGrid[row][col + 1].type] = 
+                [tempGrid[row][col + 1].type, tempGrid[row][col].type];
+              
+              // 检查是否有匹配
+              const matches = findMatchesInGrid(tempGrid);
+              if (matches.length > 0) {
+                // 恢复交换
+                [tempGrid[row][col].type, tempGrid[row][col + 1].type] = 
+                  [tempGrid[row][col + 1].type, tempGrid[row][col].type];
+                return true;
+              }
+              
+              // 恢复交换
+              [tempGrid[row][col].type, tempGrid[row][col + 1].type] = 
+                [tempGrid[row][col + 1].type, tempGrid[row][col].type];
+            }
+            
+            // 尝试与下方元素交换
+            if (row < config.gridSize - 1) {
+              // 交换
+              [tempGrid[row][col].type, tempGrid[row + 1][col].type] = 
+                [tempGrid[row + 1][col].type, tempGrid[row][col].type];
+              
+              // 检查是否有匹配
+              const matches = findMatchesInGrid(tempGrid);
+              if (matches.length > 0) {
+                // 恢复交换
+                [tempGrid[row][col].type, tempGrid[row + 1][col].type] = 
+                  [tempGrid[row + 1][col].type, tempGrid[row][col].type];
+                return true;
+              }
+              
+              // 恢复交换
+              [tempGrid[row][col].type, tempGrid[row + 1][col].type] = 
+                [tempGrid[row + 1][col].type, tempGrid[row][col].type];
+            }
+          }
+        }
+        
+        return false;
+      }
+      
+      // 在指定网格中查找匹配
+      function findMatchesInGrid(grid) {
+        const matches = [];
+        
+        // 检查水平匹配
+        for (let row = 0; row < config.gridSize; row++) {
+          for (let col = 0; col < config.gridSize - 2; col++) {
+            const currentType = grid[row][col].type;
+            if (
+              currentType &&
+              currentType === grid[row][col + 1].type &&
+              currentType === grid[row][col + 2].type
+            ) {
+              matches.push(true);
+              return matches;
+            }
+          }
+        }
+        
+        // 检查垂直匹配
+        for (let col = 0; col < config.gridSize; col++) {
+          for (let row = 0; row < config.gridSize - 2; row++) {
+            const currentType = grid[row][col].type;
+            if (
+              currentType &&
+              currentType === grid[row + 1][col].type &&
+              currentType === grid[row + 2][col].type
+            ) {
+              matches.push(true);
+              return matches;
+            }
+          }
+        }
+        
+        return matches;
+      }
+      
+      // 更新得分显示
+      function updateScore() {
+        elements.score.textContent = state.score;
+      }
+      
+      // 更新步数显示
+      function updateMoves() {
+        elements.moves.textContent = state.movesLeft;
+        
+        // 如果步数很少，添加警告样式
+        if (state.movesLeft <= 5) {
+          elements.moves.classList.add('text-red-500', 'animate-pulse');
+        } else {
+          elements.moves.classList.remove('text-red-500', 'animate-pulse');
+        }
+      }
+      
+      // 开始游戏
+      function startGame() {
+        state.gameStarted = true;
+        elements.startScreen.classList.add('hidden');
+      }
+      
+      // 结束游戏
+      function endGame() {
+        state.gameOver = true;
+        elements.finalScore.textContent = state.score;
+        elements.gameOverScreen.classList.remove('hidden');
+        elements.gameOverScreen.classList.add('flex');
+      }
+      
+      // 分享功能
+      function setupShareButtons() {
+        // 分享按钮点击事件
+        elements.shareButton.addEventListener('click', () => {
+          if (isWeChat()) {
+            alert('点击右上角"..."按钮，选择"分享给朋友"');
+          } else if (navigator.share) {
+            // 使用Web Share API（现代浏览器支持）
+            navigator.share({
+              title: '趣味消消乐',
+              text: `我在玩趣味消消乐，得了${state.score}分，快来挑战我！`,
+              url: window.location.href
+            }).catch(error => console.log('分享失败:', error));
+          } else {
+            // 复制链接到剪贴板
+            copyToClipboard(window.location.href);
+            alert('已复制游戏链接，快去分享给好友吧！');
+          }
+        });
+        
+        // 分享结果按钮点击事件
+        elements.shareResultButton.addEventListener('click', () => {
+          if (isWeChat()) {
+            alert('点击右上角"..."按钮，选择"分享给朋友"');
+          } else if (navigator.share) {
+            navigator.share({
+              title: '趣味消消乐',
+              text: `我在玩趣味消消乐，得了${state.score}分，快来挑战我！`,
+              url: window.location.href
+            }).catch(error => console.log('分享失败:', error));
+          } else {
+            copyToClipboard(window.location.href);
+            alert('已复制游戏链接，快去分享给好友吧！');
+          }
+        });
+      }
+      
+      // 检测是否在微信环境
+      function isWeChat() {
+        return navigator.userAgent.toLowerCase().includes('micromessenger');
+      }
+      
+      // 复制文本到剪贴板
+      function copyToClipboard(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      
+      // 事件监听器
+      elements.startButton.addEventListener('click', startGame);
+      elements.playAgainButton.addEventListener('click', initGame);
+      
+      // 设置分享按钮
+      setupShareButtons();
+      
+      // 初始化游戏
+      initGame();
+    });
+  </script>
+</body>
+</html># This workflow will build and push a node.js application to an Azure Web App when a commit is pushed to your default branch.
+#
+# This workflow assumes you have already created the target Azure App Service web app.
+# For instructions see https://docs.microsoft.com/en-us/azure/app-service/quickstart-nodejs?tabs=linux&pivots=development-environment-cli
+#
+# To configure this workflow:
+#
+# 1. Download the Publish Profile for your Azure Web App. You can download this file from the Overview page of your Web App in the Azure Portal.
+#    For more information: https://docs.microsoft.com/en-us/azure/app-service/deploy-github-actions?tabs=applevel#generate-deployment-credentials
+#
+# 2. Create a secret in your repository named AZURE_WEBAPP_PUBLISH_PROFILE, paste the publish profile contents as the value of the secret.
+#    For instructions on obtaining the publish profile see: https://docs.microsoft.com/azure/app-service/deploy-github-actions#configure-the-github-secret
+#
+# 3. Change the value for the AZURE_WEBAPP_NAME. Optionally, change the AZURE_WEBAPP_PACKAGE_PATH and NODE_VERSION environment variables below.
+#
+# For more information on GitHub Actions for Azure: https://github.com/Azure/Actions
+# For more information on the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# For more samples to get started with GitHub Action workflows to deploy to Azure: https://github.com/Azure/actions-workflow-samples
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: your-app-name    # set this to your application's name
+  AZURE_WEBAPP_PACKAGE_PATH: '.'      # set this to the path to your web app project, defaults to the repository root
+  NODE_VERSION: '20.x'                # set this to the node version to use
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: npm install, build, and test
+      run: |
+        npm install
+        npm run build --if-present
+        npm run test --if-present
+
+    - name: Upload artifact for deployment job
+      uses: actions/upload-artifact@v4
+      with:
+        name: node-app
+        path: .
+
+  deploy:
+    permissions:
+      contents: none
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: 'Development'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+    - name: Download artifact from build job
+      uses: actions/download-artifact@v4
+      with:
+        name: node-app
+
+    - name: 'Deploy to Azure WebApp'
+      id: deploy-to-webapp
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
